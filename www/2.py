@@ -9,20 +9,11 @@
 
 """
 
-
-class ListMetaclass(type):
-    def __new__(cls, name, bases, attrs):
-        print('name======', name, 'base=======', bases, 'attrs======', attrs)
-        attrs['add'] = lambda self, value: self.append(value)
-        print('name======', name, 'base=======', bases, 'attrs======', attrs)
-        return type.__new__(cls, name, bases, attrs)
+from urllib import parse
 
 
-class MyList(list, metaclass=ListMetaclass):
-    pass
+print(parse.parse_qs("FuncNo=9009001&username=1&name="))
 
 
-if __name__ == '__main__':
-    L = MyList()
-    L.add(1)
-    print(L)
+
+

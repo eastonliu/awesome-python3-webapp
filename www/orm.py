@@ -15,12 +15,16 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
+def log(sql, args=()):
+    logging.info('SQL: %s' % sql)
+
+
 async def create_pool(loop, **kw):
     logging.info("create database connection pool....")
     global __pool
     __pool = await aiomysql.create_pool(
         host=kw.get('host', 'localhost'),
-        port=kw.get('port', '3306'),
+        port=kw.get('port', 3306),
         user=kw.get('user'),
         password=kw.get('password'),
         db=kw.get('db'),
@@ -33,7 +37,7 @@ async def create_pool(loop, **kw):
 
 
 async def select(sql, args, size=None):
-    logging.info("SQL:", sql, "ARGS:",args)
+    log(sql, args)
     global __pool
     with (await __pool.get()) as conn:
         cur = await conn.cursor(aiomysql.DictCursor)
@@ -48,14 +52,16 @@ async def select(sql, args, size=None):
 
 
 async def execute(sql, args, autocommit=True):
-    logging.info("SQL", sql)
-    with (await __pool.get()) as conn:
+    log(sql)
+    async with __pool.get() as conn:
         if not autocommit:
             conn.begin()
         try:
-            cur = await conn.cursor(aiomysql.DictCursor)
-            await cur.execute(sql.replace('?', '%s'), args)
-            affected = cur.rowcount
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                print('sql:', sql.replace('?', '%s'))
+                print('args:', args)
+                await cur.execute(sql.replace('?', '%s'), args)
+                affected = cur.rowcount
             if not autocommit:
                 await conn.commit()
             await conn.close
@@ -86,28 +92,28 @@ class Field(object):
 
 
 class StringField(Field):
-    def __init__(self, name=None, primary_key=False, default=None, column_type='varchar(100)'):
-        super().__init__(name, column_type, primary_key, default)
+    def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
+        super().__init__(name, ddl, primary_key, default)
 
 
 class IntegerField(Field):
-    def __init__(self, name=None, primary_key=False, default=0, column_type='bigint'):
-        super().__init__(name, column_type, primary_key, default)
+    def __init__(self, name=None, primary_key=False, default=0, ddl='bigint'):
+        super().__init__(name, ddl, primary_key, default)
 
 
 class BooleanField(Field):
-    def __init__(self, name=None, primary_key=False, default=False, column_type='boolean'):
-        super().__init__(name, column_type, primary_key, default)
+    def __init__(self, name=None, primary_key=False, default=False, ddl='boolean'):
+        super().__init__(name, ddl, primary_key, default)
 
 
 class FloatField(Field):
-    def __init__(self, name=None, primary_key=False, default=0.0, column_type='real'):
-        super().__init__(name, column_type, primary_key, default)
+    def __init__(self, name=None, primary_key=False, default=0.0, ddl='real'):
+        super().__init__(name, ddl, primary_key, default)
 
 
 class TextField(Field):
-    def __init__(self, name=None, primary_key=False, default=None, column_type='text'):
-        super().__init__(name, column_type, primary_key, default)
+    def __init__(self, name=None, primary_key=False, default=None, ddl='text'):
+        super().__init__(name, ddl, primary_key, default)
 
 
 class ModelMetaclass(type):
@@ -133,7 +139,7 @@ class ModelMetaclass(type):
                     fields.append(k)
         if not primarykey:
             raise Exception('Primary key not found')
-        for k in mappings.items():
+        for k in mappings.keys():
             # 移除类属性，防止类属性和实例属性重名，在getattr时取到的是类属性而不是实例属性
             attrs.pop(k)
         escaped_fields = list(map(lambda f: '`%s`' % f, fields))
@@ -170,7 +176,7 @@ class Model(dict, metaclass=ModelMetaclass):
         value = getattr(self, key, None)
         if value is None:
             field = self.__mappings__[key]
-            if field.default is None:
+            if field.default is not None:
                 value = field.default() if callable(field.default) else field.default
                 logging.debug('using default value for %s: %s' % (key, str(value)))
                 setattr(self, key, value)

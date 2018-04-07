@@ -9,12 +9,17 @@
 
 """
 
+import asyncio
 from www import orm
-from www.models import User, Blog, Comment
+from www.models import User
 
 
-def test():
-    orm.create_pool(user='root', password='coship', database='awesome')
+loop = asyncio.get_event_loop()
+async def test():
+    await orm.create_pool(loop=loop, host='192.168.1.188', user='root', password='coship', db='awesome')
     u = User(name='lmj', email='123@qq.com', passwd='12345678', image='about:blank')
-    u.save()
+    await u.save()
 
+
+loop.run_until_complete(test())
+loop.close()
