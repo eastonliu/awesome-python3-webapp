@@ -16,7 +16,7 @@ from www.models import User
 
 loop = asyncio.get_event_loop()
 async def test():
-    await orm.create_pool(loop=loop, host='192.168.1.188', user='root', password='coship', db='awesome')
+    await orm.create_pool(loop=loop, host='172.21.13.65', user='root', password='coship', db='awesome')
     u = User(name='lmj', email='123@qq.com', passwd='12345678', image='about:blank')
     await u.save()
 

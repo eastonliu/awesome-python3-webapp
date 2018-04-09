@@ -39,15 +39,14 @@ async def create_pool(loop, **kw):
 async def select(sql, args, size=None):
     log(sql, args)
     global __pool
-    with (await __pool.get()) as conn:
-        cur = await conn.cursor(aiomysql.DictCursor)
-        await cur.execute(sql.replace('?', '%s'), args or ())
-        if size:
-            rs = await conn.fetchmany(size)
-        else:
-            rs = await conn.fetchall()
-        await conn.close()
-        logging.info("rows returned:", len(rs))
+    async with __pool.get() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute(sql.replace('?', '%s'), args or ())
+            if size:
+                rs = await cur.fetchmany(size)
+            else:
+                rs = await cur.fetchall()
+        logging.info("rows returned: %s" % len(rs))
         return rs
 
 
@@ -58,8 +57,6 @@ async def execute(sql, args, autocommit=True):
             conn.begin()
         try:
             async with conn.cursor(aiomysql.DictCursor) as cur:
-                print('sql:', sql.replace('?', '%s'))
-                print('args:', args)
                 await cur.execute(sql.replace('?', '%s'), args)
                 affected = cur.rowcount
             if not autocommit:
@@ -189,7 +186,7 @@ class Model(dict, metaclass=ModelMetaclass):
             sql.append('where')
             sql.append(where)
         if args is None:
-            args=[]
+            args = []
         orderBy = kw.get('orderBy', None)
         if orderBy:
             sql.append('order by')
@@ -200,13 +197,13 @@ class Model(dict, metaclass=ModelMetaclass):
             if isinstance(limit, int):
                 sql.append('?')
                 args.append(limit)
-            elif isinstance(limit, tuple) and len(limit) ==2:
+            elif isinstance(limit, tuple) and len(limit) == 2:
                 sql.append('? , ?')
                 args.extend(limit)
             else:
                 raise ValueError('Invalid limit value: %s' % str(limit))
-            rs = await select(' '.join(sql), args, size=1)
-            return [cls(**r) for r in rs]
+        rs = await select(' '.join(sql), args, size=1)
+        return [cls(**r) for r in rs]
 
     @classmethod
     async def findnumber(cls, selectField, where=None, args=None):

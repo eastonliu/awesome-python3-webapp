@@ -12,10 +12,11 @@
 import functools
 import inspect
 import logging
-import  os
+import os
 import asyncio
 from aiohttp import web
 from urllib import parse
+from www.apis import APIError
 
 
 def get(path):
