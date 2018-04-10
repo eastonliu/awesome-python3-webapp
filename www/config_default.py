@@ -17,7 +17,6 @@ configs = {
         'user': 'root',
         'password': 'coship',
         'db': 'awesome'
-
     },
     'session': {
         'secret': 'Awesome'

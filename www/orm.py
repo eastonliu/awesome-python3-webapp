@@ -39,29 +39,30 @@ async def create_pool(loop, **kw):
 async def select(sql, args, size=None):
     log(sql, args)
     global __pool
-    async with __pool.get() as conn:
-        async with conn.cursor(aiomysql.DictCursor) as cur:
-            await cur.execute(sql.replace('?', '%s'), args or ())
-            if size:
-                rs = await cur.fetchmany(size)
-            else:
-                rs = await cur.fetchall()
+    with (await __pool) as conn:
+        cur = await conn.cursor(aiomysql.DictCursor)
+        await cur.execute(sql.replace('?', '%s'), args or ())
+        if size:
+            rs = await cur.fetchmany(size)
+        else:
+            rs = await cur.fetchall()
+        await cur.close()
         logging.info("rows returned: %s" % len(rs))
         return rs
 
 
 async def execute(sql, args, autocommit=True):
     log(sql)
-    async with __pool.get() as conn:
+    with (await __pool) as conn:
         if not autocommit:
-            conn.begin()
+            await conn.begin()
         try:
-            async with conn.cursor(aiomysql.DictCursor) as cur:
-                await cur.execute(sql.replace('?', '%s'), args)
-                affected = cur.rowcount
+            cur = await conn.cursor()
+            await cur.execute(sql.replace('?', '%s'), args)
+            affected = cur.rowcount
+            await cur.close()
             if not autocommit:
                 await conn.commit()
-            await conn.close
         except BaseException:
             if not autocommit:
                 await conn.rollback()
